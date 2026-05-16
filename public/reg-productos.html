@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registro de Productos — InTech</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+
+<div class="page-header">
+  <div class="container">
+    <h1>Registro de <span>Productos / Servicios</span></h1>
+    <p>Administra el inventario con cálculos automáticos de ganancia, IVA y PVP</p>
+  </div>
+</div>
+
+<section class="section section-alt">
+  <div class="container">
+    <!-- FORMULARIO -->
+    <div class="form-card">
+      <h3>Nuevo <span>Producto</span></h3>
+      <div class="form-divider"></div>
+      <div id="alertaProducto" class="alerta"></div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Número de Serie *</label>
+          <input type="text" id="p-serie" placeholder="ej: SN-001">
+          <span class="error-msg"></span>
+        </div>
+        <div class="form-group">
+          <label>Descripción *</label>
+          <input type="text" id="p-desc" placeholder="Descripción del producto">
+          <span class="error-msg"></span>
+        </div>
+        <div class="form-group">
+          <label>Marca *</label>
+          <input type="text" id="p-marca" placeholder="Marca del producto">
+          <span class="error-msg"></span>
+        </div>
+        <div class="form-group">
+          <label>Precio de Compra ($) *</label>
+          <input type="number" id="p-precio" placeholder="0.00" min="0" step="0.01" oninput="calcularProducto()">
+          <span class="error-msg"></span>
+        </div>
+        <div class="form-group">
+          <label>Margen de Ganancia (%) *</label>
+          <input type="number" id="p-margen" value="30" min="0" max="1000" step="0.01" oninput="calcularProducto()">
+          <span class="error-msg"></span>
+        </div>
+        <div class="form-group">
+          <label>Cantidad en Stock *</label>
+          <input type="number" id="p-stock" value="0" min="0" step="1" oninput="calcularProducto()">
+          <span class="error-msg"></span>
+        </div>
+        <div class="form-group">
+          <label>Estado</label>
+          <select id="p-estado">
+            <option value="Activo">Activo</option>
+            <option value="Inactivo">Inactivo</option>
+          </select>
+        </div>
+
+        <!-- Cálculos automáticos -->
+        <div class="calc-box">
+          <div class="calc-title">📊 Cálculos Automáticos</div>
+          <div class="calc-grid">
+            <div class="calc-item"><label>Ganancia ($)</label><input type="text" id="c-ganancia" value="$0.00" readonly></div>
+            <div class="calc-item"><label>IVA 12% ($)</label><input type="text" id="c-iva" value="$0.00" readonly></div>
+            <div class="calc-item"><label>PVP ($)</label><input type="text" id="c-pvp" value="$0.00" readonly></div>
+            <div class="calc-item"><label>Total Inventario ($)</label><input type="text" id="c-total-inv" value="$0.00" readonly></div>
+          </div>
+          <p class="calc-formula">Fórmulas: Ganancia = Precio × Margen% | Subtotal = Precio + Ganancia | IVA = Subtotal × 12% | PVP = Subtotal + IVA | Total Inv. = PVP × Cantidad</p>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-success" id="btnGuardarProducto" onclick="guardarProducto()">📦 Guardar Producto</button>
+        <button class="btn btn-secondary" onclick="limpiarFormProducto()">🗑️ Limpiar</button>
+      </div>
+      <input type="hidden" id="p-editId">
+    </div>
+
+    <!-- TABLA -->
+    <div class="table-wrapper">
+      <div class="table-header">
+        <h4>Productos <span>Registrados</span></h4>
+        <input type="text" id="buscarProducto" class="search-input" placeholder="🔍 Buscar producto...">
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>N° Serie</th><th>Descripción</th><th>Marca</th><th>Precio</th><th>Ganancia</th><th>IVA</th><th>PVP</th><th>Estado (Stock)</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="tbodyProductos">
+            <tr class="empty-row"><td colspan="9">⏳ Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>© 2025 <strong>InTech</strong> — <a href="mailto:info@intech.ec">info@intech.ec</a></p>
+  </div>
+</footer>
+<script src="js/main.js"></script>
+<script>
+  fetch('nav.html').then(r=>r.text()).then(h=>{document.getElementById('navbar-placeholder').innerHTML=h;});
+  filtrarTabla(document.getElementById('buscarProducto'), 'tbodyProductos');
+
+  /* ─── Cálculo automático ─────────────────────────── */
+  function calcularProducto() {
+    const precio = parseFloat(document.getElementById('p-precio').value) || 0;
+    const margen = parseFloat(document.getElementById('p-margen').value) || 0;
+    const stock  = parseInt(document.getElementById('p-stock').value)    || 0;
+
+    const ganancia  = precio * margen / 100;
+    const subtotal  = precio + ganancia;
+    const iva       = subtotal * 0.12;
+    const pvp       = subtotal + iva;
+    const totalInv  = pvp * stock;
+
+    document.getElementById('c-ganancia').value  = fmt$(ganancia);
+    document.getElementById('c-iva').value       = fmt$(iva);
+    document.getElementById('c-pvp').value       = fmt$(pvp);
+    document.getElementById('c-total-inv').value = fmt$(totalInv);
+  }
+
+  /* ─── Cargar tabla ─────────────────────────────── */
+  async function cargarProductos() {
+    const tbody = document.getElementById('tbodyProductos');
+    try {
+      const res = await apiGet('/productos');
+      if (!res.ok || !res.data.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="9">No hay productos registrados.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = res.data.map(p => {
+        const stockClass = p.cantidad_stock == 0 ? 'stock-low' : p.cantidad_stock < 5 ? 'stock-med' : 'stock-ok';
+        return `<tr>
+          <td>${p.numero_serie}</td>
+          <td>${p.descripcion}</td>
+          <td>${p.marca}</td>
+          <td>${fmt$(p.precio_compra)}</td>
+          <td>${fmt$(p.ganancia)}</td>
+          <td>${fmt$(p.iva)}</td>
+          <td><strong>${fmt$(p.pvp)}</strong></td>
+          <td><span class="badge ${p.estado==='Activo'?'badge-success':'badge-danger'}">${p.estado}</span> <span class="${stockClass}">(${p.cantidad_stock})</span></td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick="editarProducto(${p.id})">✏️</button>
+            <button class="btn btn-sm btn-danger"  onclick="eliminarProducto(${p.id}, '${p.descripcion}')">🗑️</button>
+          </td>
+        </tr>`;
+      }).join('');
+    } catch {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="9">⚠️ Error de conexión.</td></tr>';
+    }
+  }
+
+  /* ─── Guardar ───────────────────────────────────── */
+  async function guardarProducto() {
+    const serie  = document.getElementById('p-serie');
+    const desc   = document.getElementById('p-desc');
+    const marca  = document.getElementById('p-marca');
+    const precio = document.getElementById('p-precio');
+    const margen = document.getElementById('p-margen');
+    const stock  = document.getElementById('p-stock');
+    const estado = document.getElementById('p-estado');
+    const alerta = document.getElementById('alertaProducto');
+    const editId = document.getElementById('p-editId').value;
+    let ok = true;
+
+    const validaciones = [
+      { el: serie,  fn: v => Validar.serie(v),     msg: 'El número de serie debe tener al menos 3 caracteres.' },
+      { el: desc,   fn: v => Validar.textoMin(v,3), msg: 'La descripción debe tener al menos 3 caracteres.' },
+      { el: marca,  fn: v => Validar.textoMin(v,2), msg: 'Ingresa la marca del producto.' },
+      { el: precio, fn: v => Validar.numeroPos(v),  msg: 'El precio de compra debe ser un número positivo.' },
+      { el: margen, fn: v => Number(v)>=0 && Number(v)<=1000, msg: 'El margen debe estar entre 0% y 1000%.' },
+      { el: stock,  fn: v => Validar.enteroPos(v),  msg: 'El stock debe ser un número entero positivo.' },
+    ];
+
+    validaciones.forEach(({ el, fn, msg }) => {
+      const g = el.closest('.form-group');
+      if (g) {
+        if (!fn(el.value)) { marcarInput(el, false); mostrarError(g, msg); ok = false; }
+        else                { marcarInput(el, true);  limpiarError(g); }
+      }
+    });
+
+    if (!ok) { mostrarAlerta(alerta, 'error', 'Corrige los errores del formulario.'); return; }
+
+    const btn = document.getElementById('btnGuardarProducto');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Guardando...';
+
+    try {
+      const data = {
+        numero_serie:    serie.value.trim(),
+        descripcion:     desc.value.trim(),
+        marca:           marca.value.trim(),
+        precio_compra:   parseFloat(precio.value),
+        margen_ganancia: parseFloat(margen.value),
+        cantidad_stock:  parseInt(stock.value),
+        estado:          estado.value,
+      };
+      const res = editId ? await apiPut(`/productos/${editId}`, data) : await apiPost('/productos', data);
+      if (res.ok) { mostrarAlerta(alerta, 'success', res.mensaje); limpiarFormProducto(); cargarProductos(); }
+      else          mostrarAlerta(alerta, 'error', res.mensaje);
+    } catch {
+      mostrarAlerta(alerta, 'error', 'Error de conexión con el servidor.');
+    } finally {
+      btn.disabled = false; btn.innerHTML = '📦 Guardar Producto';
+    }
+  }
+
+  /* ─── Editar ────────────────────────────────────── */
+  async function editarProducto(id) {
+    const res = await apiGet(`/productos/${id}`);
+    if (!res.ok) return;
+    const p = res.data;
+    document.getElementById('p-serie').value  = p.numero_serie;
+    document.getElementById('p-desc').value   = p.descripcion;
+    document.getElementById('p-marca').value  = p.marca;
+    document.getElementById('p-precio').value = p.precio_compra;
+    document.getElementById('p-margen').value = p.margen_ganancia;
+    document.getElementById('p-stock').value  = p.cantidad_stock;
+    document.getElementById('p-estado').value = p.estado;
+    document.getElementById('p-editId').value = p.id;
+    document.getElementById('btnGuardarProducto').innerHTML = '💾 Actualizar Producto';
+    calcularProducto();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* ─── Eliminar ──────────────────────────────────── */
+  async function eliminarProducto(id, nombre) {
+    if (!confirm(`¿Eliminar "${nombre}"?`)) return;
+    const res = await apiDel(`/productos/${id}`);
+    mostrarAlerta(document.getElementById('alertaProducto'), res.ok ? 'success' : 'error', res.mensaje);
+    if (res.ok) cargarProductos();
+  }
+
+  /* ─── Limpiar ───────────────────────────────────── */
+  function limpiarFormProducto() {
+    ['p-serie','p-desc','p-marca','p-precio','p-stock'].forEach(id => {
+      const el = document.getElementById(id);
+      el.value = el.id === 'p-stock' ? '0' : '';
+      el.classList.remove('ok','error');
+    });
+    document.getElementById('p-margen').value = '30';
+    document.getElementById('p-estado').value = 'Activo';
+    document.getElementById('p-editId').value = '';
+    document.getElementById('btnGuardarProducto').innerHTML = '📦 Guardar Producto';
+    document.querySelectorAll('.error-msg').forEach(e => e.textContent = '');
+    calcularProducto();
+  }
+
+  cargarProductos();
+</script>
+</body>
+</html>

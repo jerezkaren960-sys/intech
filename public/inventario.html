@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventario — InTech</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+
+<div class="page-header">
+  <div class="container">
+    <h1>Control de <span>Inventario</span></h1>
+    <p>Vista general de todos los productos y su stock disponible</p>
+  </div>
+</div>
+
+<section class="section section-alt">
+  <div class="container">
+    <!-- Stats de inventario -->
+    <div class="stats-grid" style="margin-bottom:2rem" id="invStats">
+      <div class="stat-card"><div class="stat-icon azul">📦</div><div class="stat-info"><p>Total Productos</p><h3 id="inv-total">—</h3></div></div>
+      <div class="stat-card"><div class="stat-icon verde">✅</div><div class="stat-info"><p>Activos</p><h3 id="inv-activos">—</h3></div></div>
+      <div class="stat-card"><div class="stat-icon rojo">⚠️</div><div class="stat-info"><p>Stock Bajo (&lt;5)</p><h3 id="inv-bajo">—</h3></div></div>
+      <div class="stat-card"><div class="stat-icon naranja">💰</div><div class="stat-info"><p>Valor Inventario</p><h3 id="inv-valor">—</h3></div></div>
+    </div>
+
+    <div class="table-wrapper">
+      <div class="table-header">
+        <h4>Inventario <span>Productos</span></h4>
+        <input type="text" id="buscarInv" class="search-input" placeholder="🔍 Buscar producto...">
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>N° Serie</th>
+              <th>Descripción</th>
+              <th>Marca</th>
+              <th>Precio Compra</th>
+              <th>Ganancia</th>
+              <th>IVA 12%</th>
+              <th>PVP</th>
+              <th>Stock</th>
+              <th>Total Inv.</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyInv">
+            <tr class="empty-row"><td colspan="10">⏳ Cargando inventario...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>© 2025 <strong>InTech</strong> — <a href="mailto:info@intech.ec">info@intech.ec</a></p>
+  </div>
+</footer>
+<script src="js/main.js"></script>
+<script>
+  fetch('nav.html').then(r=>r.text()).then(h=>{document.getElementById('navbar-placeholder').innerHTML=h;});
+  filtrarTabla(document.getElementById('buscarInv'), 'tbodyInv');
+
+  async function cargarInventario() {
+    const tbody = document.getElementById('tbodyInv');
+    try {
+      const res = await apiGet('/productos');
+      if (!res.ok || !res.data.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="10">No hay productos registrados.</td></tr>';
+        return;
+      }
+      const prods = res.data;
+      let totalActivos = 0, totalBajo = 0, valorTotal = 0;
+      tbody.innerHTML = prods.map(p => {
+        const stock = Number(p.cantidad_stock);
+        const stockClass = stock === 0 ? 'stock-low' : stock < 5 ? 'stock-med' : 'stock-ok';
+        if (p.estado === 'Activo') { totalActivos++; valorTotal += Number(p.total_inventario || 0); }
+        if (stock < 5 && p.estado === 'Activo') totalBajo++;
+        return `<tr>
+          <td>${p.numero_serie}</td>
+          <td>${p.descripcion}</td>
+          <td>${p.marca}</td>
+          <td>${fmt$(p.precio_compra)}</td>
+          <td>${fmt$(p.ganancia)}</td>
+          <td>${fmt$(p.iva)}</td>
+          <td><strong>${fmt$(p.pvp)}</strong></td>
+          <td class="${stockClass}">${stock}</td>
+          <td>${fmt$(p.total_inventario)}</td>
+          <td><span class="badge ${p.estado === 'Activo' ? 'badge-success' : 'badge-danger'}">${p.estado}</span></td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById('inv-total').textContent   = prods.length;
+      document.getElementById('inv-activos').textContent = totalActivos;
+      document.getElementById('inv-bajo').textContent    = totalBajo;
+      document.getElementById('inv-valor').textContent   = fmt$(valorTotal);
+    } catch {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">⚠️ No se pudo conectar al servidor.</td></tr>';
+    }
+  }
+  cargarInventario();
+</script>
+</body>
+</html>

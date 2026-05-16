@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InTech — Sistema de Control de Inventarios</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='15' fill='%23e87722'/><text y='.9em' font-size='65' x='10' fill='white' font-weight='900'>IT</text></svg>">
+</head>
+<body>
+
+<div id="navbar-placeholder"></div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <h1>Sistema de Control de <span>Inventarios</span></h1>
+    <p>Gestiona clientes, productos y ventas de InTech de forma eficiente. Control total de tu inventario tecnológico.</p>
+    <div class="hero-btns">
+      <a href="reg-clientes.html" class="btn btn-primary">📋 Registrar Cliente</a>
+      <a href="inventario.html" class="btn btn-outline">📊 Ver Inventario</a>
+    </div>
+  </div>
+</section>
+
+<!-- ESTADÍSTICAS -->
+<section class="section section-alt">
+  <div class="container">
+    <div class="section-title">
+      <h2>Panel de <span>Estadísticas</span></h2>
+      <div class="divider"></div>
+      <p>Resumen general del sistema de inventarios</p>
+    </div>
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card"><div class="stat-icon azul">👥</div><div class="stat-info"><p>Total Clientes</p><h3 id="st-clientes">—</h3></div></div>
+      <div class="stat-card"><div class="stat-icon naranja">📦</div><div class="stat-info"><p>Productos Activos</p><h3 id="st-productos">—</h3></div></div>
+      <div class="stat-card"><div class="stat-icon verde">🛒</div><div class="stat-info"><p>Ventas Totales</p><h3 id="st-ventas">—</h3></div></div>
+      <div class="stat-card"><div class="stat-icon naranja">💰</div><div class="stat-info"><p>Ingresos Totales</p><h3 id="st-ingresos">—</h3></div></div>
+      <div class="stat-card"><div class="stat-icon rojo">⚠️</div><div class="stat-info"><p>Stock Bajo (&lt;5)</p><h3 id="st-stockbajo">—</h3></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ACCESOS RÁPIDOS -->
+<section class="section">
+  <div class="container">
+    <div class="section-title">
+      <h2>Accesos <span>Rápidos</span></h2>
+      <div class="divider"></div>
+    </div>
+    <div class="quick-cards">
+      <div class="quick-card" onclick="location.href='reg-clientes.html'">
+        <div class="icon-box">👥</div>
+        <h3>Registrar Clientes</h3>
+        <p>Agregar nuevos clientes al sistema con validación de cédula ecuatoriana.</p>
+      </div>
+      <div class="quick-card" onclick="location.href='reg-productos.html'">
+        <div class="icon-box">📦</div>
+        <h3>Registrar Productos</h3>
+        <p>Agregar productos con cálculo automático de ganancia, IVA y PVP.</p>
+      </div>
+      <div class="quick-card" onclick="location.href='reg-ventas.html'">
+        <div class="icon-box">🛒</div>
+        <h3>Registrar Ventas</h3>
+        <p>Registrar ventas con control de stock y cálculo de totales.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <p>© 2025 <strong>InTech</strong> — Implementaciones Tecnológicas Corporativas | C.C. Alban Borja Local 48/12 | <a href="mailto:info@intech.ec">info@intech.ec</a></p>
+  </div>
+</footer>
+
+<script src="js/main.js"></script>
+<script>
+  // Cargar navbar
+  fetch('nav.html').then(r=>r.text()).then(h=>{ document.getElementById('navbar-placeholder').innerHTML=h; });
+
+  // Cargar estadísticas
+  async function cargarStats() {
+    try {
+      const res = await apiGet('/estadisticas');
+      if (res.ok) {
+        const d = res.data;
+        document.getElementById('st-clientes').textContent  = d.total_clientes;
+        document.getElementById('st-productos').textContent = d.total_productos;
+        document.getElementById('st-ventas').textContent    = d.total_ventas;
+        document.getElementById('st-ingresos').textContent  = fmt$(d.ingresos_totales);
+        document.getElementById('st-stockbajo').textContent = d.stock_bajo;
+      }
+    } catch { /* servidor no disponible */ }
+  }
+  cargarStats();
+</script>
+</body>
+</html>

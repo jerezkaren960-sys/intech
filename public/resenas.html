@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reseñas — InTech</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+
+<div class="page-header">
+  <div class="container">
+    <h1>Reseñas de <span>Clientes</span></h1>
+    <p>Lo que dicen nuestros clientes satisfechos</p>
+  </div>
+</div>
+
+<section class="section section-alt">
+  <div class="container">
+    <div class="section-title">
+      <h2>Opiniones <span>Reales</span></h2>
+      <div class="divider"></div>
+      <p>La satisfacción de nuestros clientes es nuestra mayor recompensa</p>
+    </div>
+    <div class="reviews-grid">
+      <div class="review-card">
+        <div class="stars">★★★★★</div>
+        <p>"Excelente atención y productos de calidad. Compré mi laptop aquí y el servicio fue impecable. Totalmente recomendado."</p>
+        <div class="author">— Carlos Medina, Ambato</div>
+      </div>
+      <div class="review-card">
+        <div class="stars">★★★★★</div>
+        <p>"Muy buena empresa, precios justos y garantía real. Me ayudaron a elegir el equipo perfecto para mi negocio."</p>
+        <div class="author">— María Torres, Latacunga</div>
+      </div>
+      <div class="review-card">
+        <div class="stars">★★★★☆</div>
+        <p>"El técnico llegó puntual y resolvió el problema de mi computadora en menos de una hora. Excelente servicio técnico."</p>
+        <div class="author">— Roberto Pazmiño, Ambato</div>
+      </div>
+      <div class="review-card">
+        <div class="stars">★★★★★</div>
+        <p>"Compré una impresora para mi empresa y el sistema de tinta continua que me instalaron funciona perfecto. Ahorro mucho en tinta."</p>
+        <div class="author">— Ana Guevara, Pelileo</div>
+      </div>
+      <div class="review-card">
+        <div class="stars">★★★★★</div>
+        <p>"Muy profesionales. Me configuraron toda la red de mi empresa y el soporte post-venta ha sido excelente."</p>
+        <div class="author">— Diego Villacís, Ambato</div>
+      </div>
+      <div class="review-card">
+        <div class="stars">★★★★☆</div>
+        <p>"Buenos precios comparado con otras tiendas. Me dieron una garantía extendida y el producto llegó en perfecto estado."</p>
+        <div class="author">— Fernanda Cepeda, Riobamba</div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:3rem">
+      <p style="color:var(--texto-sub);margin-bottom:1rem">¿Fuiste atendido en InTech? ¡Déjanos tu reseña!</p>
+      <a href="contacto.html" class="btn btn-primary">✍️ Dejar mi Reseña</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>© 2025 <strong>InTech</strong> — <a href="mailto:info@intech.ec">info@intech.ec</a></p>
+  </div>
+</footer>
+<script src="js/main.js"></script>
+<script>fetch('nav.html').then(r=>r.text()).then(h=>{document.getElementById('navbar-placeholder').innerHTML=h;});</script>
+</body>
+</html>

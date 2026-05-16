@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registro de Ventas — InTech</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+
+<div class="page-header">
+  <div class="container">
+    <h1>Registro de <span>Ventas</span></h1>
+    <p>Registra ventas con cálculos automáticos y control de stock</p>
+  </div>
+</div>
+
+<section class="section section-alt">
+  <div class="container">
+    <!-- FORMULARIO -->
+    <div class="form-card">
+      <h3>Nueva <span>Venta</span></h3>
+      <div class="form-divider"></div>
+      <div id="alertaVenta" class="alerta"></div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Fecha *</label>
+          <input type="date" id="v-fecha">
+          <span class="error-msg"></span>
+        </div>
+        <div class="form-group">
+          <label>Cliente *</label>
+          <select id="v-cliente">
+            <option value="">-- Seleccionar --</option>
+          </select>
+          <span class="error-msg"></span>
+        </div>
+        <div class="form-group">
+          <label>Producto / Servicio *</label>
+          <select id="v-producto" onchange="seleccionarProducto()">
+            <option value="">-- Seleccionar --</option>
+          </select>
+          <span class="error-msg"></span>
+        </div>
+        <div class="form-group">
+          <label>Cantidad *</label>
+          <input type="number" id="v-cantidad" value="1" min="1" step="1" oninput="calcularVenta()">
+          <span class="error-msg"></span>
+        </div>
+
+        <!-- Cálculos de venta -->
+        <div class="calc-box">
+          <div class="calc-title">🛒 Cálculos de Venta</div>
+          <div class="calc-grid">
+            <div class="calc-item"><label>Stock Disponible</label><input type="text" id="v-stock" value="0 unidades" readonly></div>
+            <div class="calc-item"><label>Subtotal</label><input type="text" id="v-subtotal" value="$0.00" readonly></div>
+            <div class="calc-item"><label>IVA 12%</label><input type="text" id="v-iva" value="$0.00" readonly></div>
+            <div class="calc-item"><label>TOTAL A PAGAR</label><input type="text" id="v-total" value="$0.00" readonly style="font-weight:700;font-size:1.1rem;color:var(--naranja)"></div>
+          </div>
+          <p class="calc-formula">Fórmulas: Subtotal = PVP × Cantidad | IVA = Subtotal × 12% | Total = Subtotal + IVA</p>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-success" id="btnRegistrarVenta" onclick="registrarVenta()">🛒 Registrar Venta</button>
+        <button class="btn btn-secondary" onclick="limpiarFormVenta()">🗑️ Limpiar</button>
+      </div>
+    </div>
+
+    <!-- TABLA -->
+    <div class="table-wrapper">
+      <div class="table-header">
+        <h4>Ventas <span>Registradas</span></h4>
+        <input type="text" id="buscarVenta" class="search-input" placeholder="🔍 Buscar venta...">
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Cantidad</th><th>Subtotal</th><th>Total</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="tbodyVentas">
+            <tr class="empty-row"><td colspan="8">⏳ Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>© 2025 <strong>InTech</strong> — <a href="mailto:info@intech.ec">info@intech.ec</a></p>
+  </div>
+</footer>
+<script src="js/main.js"></script>
+<script>
+  fetch('nav.html').then(r=>r.text()).then(h=>{document.getElementById('navbar-placeholder').innerHTML=h;});
+  filtrarTabla(document.getElementById('buscarVenta'), 'tbodyVentas');
+
+  // Precio del producto seleccionado (PVP)
+  let pvpSeleccionado = 0;
+  let stockSeleccionado = 0;
+
+  /* ─── Inicializar ───────────────────────────────── */
+  async function inicializar() {
+    // Fecha de hoy
+    document.getElementById('v-fecha').value = new Date().toISOString().split('T')[0];
+
+    // Cargar clientes
+    try {
+      const rc = await apiGet('/clientes');
+      const sel = document.getElementById('v-cliente');
+      if (rc.ok && rc.data.length) {
+        rc.data.forEach(c => {
+          const o = document.createElement('option');
+          o.value = c.id;
+          o.textContent = `${c.nombre} ${c.apellido} — ${c.cedula}`;
+          sel.appendChild(o);
+        });
+      }
+    } catch {}
+
+    // Cargar productos activos con stock
+    try {
+      const rp = await apiGet('/productos');
+      const sel = document.getElementById('v-producto');
+      if (rp.ok && rp.data.length) {
+        rp.data.filter(p => p.estado === 'Activo').forEach(p => {
+          const o = document.createElement('option');
+          o.value    = p.id;
+          o.dataset.pvp   = p.pvp;
+          o.dataset.stock = p.cantidad_stock;
+          o.textContent = `${p.descripcion} — ${p.marca} | PVP: ${fmt$(p.pvp)} | Stock: ${p.cantidad_stock}`;
+          sel.appendChild(o);
+        });
+      }
+    } catch {}
+
+    cargarVentas();
+  }
+
+  /* ─── Seleccionar producto ──────────────────────── */
+  function seleccionarProducto() {
+    const sel = document.getElementById('v-producto');
+    const opt = sel.options[sel.selectedIndex];
+    pvpSeleccionado   = parseFloat(opt.dataset.pvp)   || 0;
+    stockSeleccionado = parseInt(opt.dataset.stock)    || 0;
+    document.getElementById('v-stock').value = stockSeleccionado + ' unidades';
+    calcularVenta();
+  }
+
+  /* ─── Cálculo automático ────────────────────────── */
+  function calcularVenta() {
+    const cantidad = parseInt(document.getElementById('v-cantidad').value) || 0;
+    const subtotal = pvpSeleccionado * cantidad / 1.12;
+    const iva      = pvpSeleccionado * cantidad - subtotal;
+    const total    = pvpSeleccionado * cantidad;
+    document.getElementById('v-subtotal').value = fmt$(subtotal);
+    document.getElementById('v-iva').value      = fmt$(iva);
+    document.getElementById('v-total').value    = fmt$(total);
+  }
+
+  /* ─── Cargar tabla ventas ───────────────────────── */
+  async function cargarVentas() {
+    const tbody = document.getElementById('tbodyVentas');
+    try {
+      const res = await apiGet('/ventas');
+      if (!res.ok || !res.data.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No hay ventas registradas.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = res.data.map(v => `
+        <tr>
+          <td>#${v.id}</td>
+          <td>${v.fecha_venta}</td>
+          <td>${v.cliente_nombre}</td>
+          <td>${v.producto_nombre}</td>
+          <td style="text-align:center">${v.cantidad}</td>
+          <td>${fmt$(v.subtotal)}</td>
+          <td><strong>${fmt$(v.total)}</strong></td>
+          <td><button class="btn btn-sm btn-danger" onclick="anularVenta(${v.id})">🗑️ Anular</button></td>
+        </tr>`).join('');
+    } catch {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">⚠️ Error de conexión.</td></tr>';
+    }
+  }
+
+  /* ─── Registrar venta ─────────────────────────── */
+  async function registrarVenta() {
+    const fecha    = document.getElementById('v-fecha');
+    const clienteS = document.getElementById('v-cliente');
+    const prodS    = document.getElementById('v-producto');
+    const cantidad = document.getElementById('v-cantidad');
+    const alerta   = document.getElementById('alertaVenta');
+    let ok = true;
+
+    // Validar fecha
+    const gf = fecha.closest('.form-group');
+    if (!fecha.value) { marcarInput(fecha, false); mostrarError(gf, 'Selecciona una fecha.'); ok = false; }
+    else { marcarInput(fecha, true); limpiarError(gf); }
+
+    // Validar cliente
+    const gc = clienteS.closest('.form-group');
+    if (!clienteS.value) { mostrarError(gc, 'Selecciona un cliente.'); ok = false; }
+    else limpiarError(gc);
+
+    // Validar producto
+    const gp = prodS.closest('.form-group');
+    if (!prodS.value) { mostrarError(gp, 'Selecciona un producto.'); ok = false; }
+    else limpiarError(gp);
+
+    // Validar cantidad
+    const gq = cantidad.closest('.form-group');
+    const qty = parseInt(cantidad.value);
+    if (!Number.isInteger(qty) || qty < 1) { marcarInput(cantidad, false); mostrarError(gq, 'La cantidad debe ser mayor a 0.'); ok = false; }
+    else if (qty > stockSeleccionado) { marcarInput(cantidad, false); mostrarError(gq, `Stock insuficiente. Disponible: ${stockSeleccionado}`); ok = false; }
+    else { marcarInput(cantidad, true); limpiarError(gq); }
+
+    if (!ok) { mostrarAlerta(alerta, 'error', 'Corrige los errores del formulario.'); return; }
+
+    const btn = document.getElementById('btnRegistrarVenta');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Procesando...';
+
+    try {
+      const res = await apiPost('/ventas', {
+        fecha_venta: fecha.value,
+        cliente_id:  parseInt(clienteS.value),
+        producto_id: parseInt(prodS.value),
+        cantidad:    qty,
+      });
+      if (res.ok) {
+        mostrarAlerta(alerta, 'success', `${res.mensaje} Total: ${fmt$(res.total)}`);
+        limpiarFormVenta();
+        // Recargar selectores para actualizar stock
+        document.getElementById('v-producto').innerHTML = '<option value="">-- Seleccionar --</option>';
+        inicializar();
+      } else {
+        mostrarAlerta(alerta, 'error', res.mensaje);
+      }
+    } catch {
+      mostrarAlerta(alerta, 'error', 'Error de conexión.');
+    } finally {
+      btn.disabled = false; btn.innerHTML = '🛒 Registrar Venta';
+    }
+  }
+
+  /* ─── Anular venta ──────────────────────────────── */
+  async function anularVenta(id) {
+    if (!confirm(`¿Anular venta #${id}? El stock del producto será restaurado.`)) return;
+    const res = await apiDel(`/ventas/${id}`);
+    mostrarAlerta(document.getElementById('alertaVenta'), res.ok ? 'success' : 'error', res.mensaje);
+    if (res.ok) { inicializar(); }
+  }
+
+  /* ─── Limpiar form ──────────────────────────────── */
+  function limpiarFormVenta() {
+    document.getElementById('v-fecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('v-cliente').value  = '';
+    document.getElementById('v-producto').value = '';
+    document.getElementById('v-cantidad').value = '1';
+    pvpSeleccionado = 0; stockSeleccionado = 0;
+    document.getElementById('v-stock').value   = '0 unidades';
+    document.getElementById('v-subtotal').value = '$0.00';
+    document.getElementById('v-iva').value      = '$0.00';
+    document.getElementById('v-total').value    = '$0.00';
+    document.querySelectorAll('.error-msg').forEach(e => e.textContent = '');
+    document.querySelectorAll('input.error, input.ok, select.error, select.ok').forEach(el => el.classList.remove('error','ok'));
+  }
+
+  inicializar();
+</script>
+</body>
+</html>

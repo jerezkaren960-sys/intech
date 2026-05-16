@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Productos — InTech</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+
+<div class="page-header">
+  <div class="container">
+    <h1>Nuestros <span>Productos</span></h1>
+    <p>Equipos y accesorios tecnológicos de las mejores marcas</p>
+  </div>
+</div>
+
+<section class="section section-alt">
+  <div class="container">
+    <div class="section-title">
+      <h2>Catálogo de <span>Productos</span></h2>
+      <div class="divider"></div>
+      <p>Encuentra la tecnología que necesitas al mejor precio</p>
+    </div>
+    <div class="info-cards">
+      <div class="info-card"><div class="ic-icon">💻</div><h3>Laptops y PCs</h3><p>Equipos de escritorio y portátiles de marcas como HP, Dell, Lenovo, Asus y más, para uso personal y empresarial.</p></div>
+      <div class="info-card"><div class="ic-icon">🖥️</div><h3>Monitores</h3><p>Monitores Full HD, 4K y curvos de las mejores marcas. Desde 21" hasta 32" para todo tipo de uso.</p></div>
+      <div class="info-card"><div class="ic-icon">⌨️</div><h3>Periféricos</h3><p>Teclados, ratones, auriculares, webcams y más accesorios para completar tu estación de trabajo.</p></div>
+      <div class="info-card"><div class="ic-icon">📱</div><h3>Smartphones</h3><p>Los últimos modelos de Samsung, iPhone, Xiaomi y más marcas líderes del mercado.</p></div>
+      <div class="info-card"><div class="ic-icon">🖨️</div><h3>Impresoras</h3><p>Impresoras de inyección de tinta, láser y multifunción. Sistemas de tinta continua y servicio técnico.</p></div>
+      <div class="info-card"><div class="ic-icon">🔌</div><h3>Componentes</h3><p>RAM, discos duros SSD, procesadores, tarjetas gráficas y todos los componentes para armar o mejorar tu PC.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container" style="text-align:center">
+    <div class="section-title">
+      <h2>¿Buscas un <span>producto específico?</span></h2>
+      <div class="divider"></div>
+      <p>Visita nuestro inventario en tiempo real o contáctanos directamente</p>
+    </div>
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
+      <a href="inventario.html" class="btn btn-primary">📊 Ver Inventario</a>
+      <a href="contacto.html" class="btn btn-outline" style="color:var(--azul);border-color:var(--azul)">📞 Contactar</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>© 2025 <strong>InTech</strong> — <a href="mailto:info@intech.ec">info@intech.ec</a></p>
+  </div>
+</footer>
+<script src="js/main.js"></script>
+<script>fetch('nav.html').then(r=>r.text()).then(h=>{document.getElementById('navbar-placeholder').innerHTML=h;});</script>
+</body>
+</html>

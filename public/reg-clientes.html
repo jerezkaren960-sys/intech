@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registro de Clientes — InTech</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+
+<div class="page-header">
+  <div class="container">
+    <h1>Registro de <span>Clientes</span></h1>
+    <p>Administra la base de datos de clientes de InTech</p>
+  </div>
+</div>
+
+<section class="section section-alt">
+  <div class="container">
+    <!-- FORMULARIO -->
+    <div class="form-card">
+      <h3>Nuevo <span>Cliente</span></h3>
+      <div class="form-divider"></div>
+      <div id="alertaCliente" class="alerta"></div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Cédula (10 dígitos) *</label>
+          <input type="text" id="c-cedula" placeholder="ej: 0001234567" maxlength="10">
+          <span class="error-msg"></span>
+        </div>
+        <div class="form-group">
+          <label>Nombre *</label>
+          <input type="text" id="c-nombre" placeholder="Nombre del cliente">
+          <span class="error-msg"></span>
+        </div>
+        <div class="form-group">
+          <label>Apellido *</label>
+          <input type="text" id="c-apellido" placeholder="Apellido del cliente">
+          <span class="error-msg"></span>
+        </div>
+        <div class="form-group">
+          <label>Teléfono (10 dígitos) *</label>
+          <input type="text" id="c-telefono" placeholder="ej: 0981373959" maxlength="10">
+          <span class="error-msg"></span>
+        </div>
+        <div class="form-group full">
+          <label>Correo Electrónico *</label>
+          <input type="email" id="c-correo" placeholder="correo@ejemplo.com">
+          <span class="error-msg"></span>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-success" id="btnGuardarCliente" onclick="guardarCliente()">👤 Guardar Cliente</button>
+        <button class="btn btn-secondary" onclick="limpiarFormCliente()">🗑️ Limpiar</button>
+      </div>
+      <input type="hidden" id="c-editId">
+    </div>
+
+    <!-- TABLA -->
+    <div class="table-wrapper">
+      <div class="table-header">
+        <h4>Clientes <span>Registrados</span></h4>
+        <input type="text" id="buscarCliente" class="search-input" placeholder="🔍 Buscar cliente...">
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Cédula</th><th>Nombre</th><th>Apellido</th><th>Teléfono</th><th>Correo</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="tbodyClientes">
+            <tr class="empty-row"><td colspan="6">⏳ Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>© 2025 <strong>InTech</strong> — <a href="mailto:info@intech.ec">info@intech.ec</a></p>
+  </div>
+</footer>
+<script src="js/main.js"></script>
+<script>
+  fetch('nav.html').then(r=>r.text()).then(h=>{document.getElementById('navbar-placeholder').innerHTML=h;});
+  filtrarTabla(document.getElementById('buscarCliente'), 'tbodyClientes');
+
+  /* ─── Cargar tabla ─────────────────────────────── */
+  async function cargarClientes() {
+    const tbody = document.getElementById('tbodyClientes');
+    try {
+      const res = await apiGet('/clientes');
+      if (!res.ok || !res.data.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No hay clientes registrados.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = res.data.map(c => `
+        <tr>
+          <td>${c.cedula}</td>
+          <td>${c.nombre}</td>
+          <td>${c.apellido}</td>
+          <td>${c.telefono}</td>
+          <td>${c.correo}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick="editarCliente(${c.id})">✏️</button>
+            <button class="btn btn-sm btn-danger"  onclick="eliminarCliente(${c.id}, '${c.nombre} ${c.apellido}')">🗑️</button>
+          </td>
+        </tr>`).join('');
+    } catch {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">⚠️ Error de conexión.</td></tr>';
+    }
+  }
+
+  /* ─── Validar y guardar ────────────────────────── */
+  async function guardarCliente() {
+    const cedula   = document.getElementById('c-cedula');
+    const nombre   = document.getElementById('c-nombre');
+    const apellido = document.getElementById('c-apellido');
+    const telefono = document.getElementById('c-telefono');
+    const correo   = document.getElementById('c-correo');
+    const alerta   = document.getElementById('alertaCliente');
+    const editId   = document.getElementById('c-editId').value;
+    let ok = true;
+
+    const validaciones = [
+      { el: cedula,   fn: v => Validar.cedulaEcuatoriana(v), msg: 'Cédula ecuatoriana inválida (10 dígitos con dígito verificador).' },
+      { el: nombre,   fn: v => Validar.textoMin(v, 2),        msg: 'El nombre debe tener al menos 2 caracteres.' },
+      { el: apellido, fn: v => Validar.textoMin(v, 2),        msg: 'El apellido debe tener al menos 2 caracteres.' },
+      { el: telefono, fn: v => Validar.telefono(v),           msg: 'Teléfono inválido. Ejemplo: 0981373959 ó 0321234567.' },
+      { el: correo,   fn: v => Validar.correo(v),             msg: 'Correo electrónico inválido.' },
+    ];
+
+    validaciones.forEach(({ el, fn, msg }) => {
+      const g = el.closest('.form-group');
+      if (!fn(el.value)) { marcarInput(el, false); mostrarError(g, msg); ok = false; }
+      else                { marcarInput(el, true);  limpiarError(g); }
+    });
+
+    if (!ok) { mostrarAlerta(alerta, 'error', 'Corrige los errores del formulario.'); return; }
+
+    const btn = document.getElementById('btnGuardarCliente');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Guardando...';
+
+    try {
+      const data = {
+        cedula:   cedula.value.trim(),
+        nombre:   nombre.value.trim(),
+        apellido: apellido.value.trim(),
+        telefono: telefono.value.trim(),
+        correo:   correo.value.trim(),
+      };
+      let res;
+      if (editId) {
+        res = await apiPut(`/clientes/${editId}`, data);
+      } else {
+        res = await apiPost('/clientes', data);
+      }
+      if (res.ok) {
+        mostrarAlerta(alerta, 'success', res.mensaje);
+        limpiarFormCliente();
+        cargarClientes();
+      } else {
+        mostrarAlerta(alerta, 'error', res.mensaje);
+      }
+    } catch {
+      mostrarAlerta(alerta, 'error', 'Error de conexión con el servidor.');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '👤 Guardar Cliente';
+    }
+  }
+
+  /* ─── Editar ────────────────────────────────────── */
+  async function editarCliente(id) {
+    try {
+      const res = await apiGet(`/clientes/${id}`);
+      if (!res.ok) return;
+      const c = res.data;
+      document.getElementById('c-cedula').value   = c.cedula;
+      document.getElementById('c-nombre').value   = c.nombre;
+      document.getElementById('c-apellido').value = c.apellido;
+      document.getElementById('c-telefono').value = c.telefono;
+      document.getElementById('c-correo').value   = c.correo;
+      document.getElementById('c-editId').value   = c.id;
+      document.getElementById('btnGuardarCliente').innerHTML = '💾 Actualizar Cliente';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch { alert('Error al cargar datos del cliente.'); }
+  }
+
+  /* ─── Eliminar ──────────────────────────────────── */
+  async function eliminarCliente(id, nombre) {
+    if (!confirm(`¿Eliminar al cliente "${nombre}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      const res = await apiDel(`/clientes/${id}`);
+      mostrarAlerta(document.getElementById('alertaCliente'), res.ok ? 'success' : 'error', res.mensaje);
+      if (res.ok) cargarClientes();
+    } catch { alert('Error de conexión.'); }
+  }
+
+  /* ─── Limpiar form ──────────────────────────────── */
+  function limpiarFormCliente() {
+    ['c-cedula','c-nombre','c-apellido','c-telefono','c-correo'].forEach(id => {
+      const el = document.getElementById(id);
+      el.value = '';
+      el.classList.remove('ok','error');
+    });
+    document.getElementById('c-editId').value = '';
+    document.getElementById('btnGuardarCliente').innerHTML = '👤 Guardar Cliente';
+    document.querySelectorAll('.error-msg').forEach(e => e.textContent = '');
+  }
+
+  cargarClientes();
+</script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contacto — InTech</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+
+<div class="page-header">
+  <div class="container">
+    <h1>Contáctanos</h1>
+    <p>Estamos aquí para ayudarte</p>
+  </div>
+</div>
+
+<section class="section section-alt">
+  <div class="container">
+    <div class="contacto-grid">
+      <div class="contacto-info">
+        <h3>Información de <span style="color:var(--naranja)">Contacto</span></h3>
+        <p style="color:var(--texto-sub);margin-bottom:1.5rem">Visítanos en nuestra tienda o comunícate con nosotros por cualquiera de estos medios.</p>
+        <div class="ci-item">
+          <div class="ci-icon">📍</div>
+          <div class="ci-text"><p>Dirección</p><strong>C.C. Alban Borja, Local 48/12, Ambato - Ecuador</strong></div>
+        </div>
+        <div class="ci-item">
+          <div class="ci-icon">📞</div>
+          <div class="ci-text"><p>Teléfono / WhatsApp</p><strong>0981373959</strong></div>
+        </div>
+        <div class="ci-item">
+          <div class="ci-icon">✉️</div>
+          <div class="ci-text"><p>Correo Electrónico</p><strong>info@intech.ec</strong></div>
+        </div>
+        <div class="ci-item">
+          <div class="ci-icon">🕐</div>
+          <div class="ci-text"><p>Horario de Atención</p><strong>Lunes a Viernes: 10:00am – 6:30pm</strong></div>
+        </div>
+        <div style="margin-top:2rem;padding:1.5rem;background:var(--gris-bg);border-radius:10px;border-left:4px solid var(--naranja)">
+          <p style="font-weight:700;color:var(--azul);margin-bottom:.5rem">📍 Cómo llegar</p>
+          <p style="color:var(--texto-sub);font-size:.9rem">Estamos ubicados en el Centro Comercial Alban Borja, planta baja, local 48/12. Fácil acceso desde el centro de Ambato.</p>
+        </div>
+      </div>
+
+      <div>
+        <div class="form-card" style="margin:0">
+          <h3>Envíanos un <span>Mensaje</span></h3>
+          <div class="form-divider"></div>
+          <div id="alertaContacto" class="alerta"></div>
+          <div style="display:flex;flex-direction:column;gap:1rem">
+            <div class="form-group">
+              <label>Nombre completo *</label>
+              <input type="text" id="c-nombre" placeholder="Tu nombre">
+              <span class="error-msg"></span>
+            </div>
+            <div class="form-group">
+              <label>Teléfono *</label>
+              <input type="text" id="c-telefono" placeholder="0981234567" maxlength="10">
+              <span class="error-msg"></span>
+            </div>
+            <div class="form-group">
+              <label>Correo electrónico *</label>
+              <input type="email" id="c-correo" placeholder="tu@correo.com">
+              <span class="error-msg"></span>
+            </div>
+            <div class="form-group">
+              <label>Mensaje *</label>
+              <textarea id="c-mensaje" rows="4" placeholder="¿En qué podemos ayudarte?" style="resize:vertical;padding:.7rem 1rem;border:2px solid var(--gris-borde);border-radius:8px;font-size:.92rem;outline:none;transition:.25s ease;background:#fafbff"></textarea>
+              <span class="error-msg"></span>
+            </div>
+            <button class="btn btn-primary" onclick="enviarMensaje()">📨 Enviar Mensaje</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>© 2025 <strong>InTech</strong> — <a href="mailto:info@intech.ec">info@intech.ec</a></p>
+  </div>
+</footer>
+<script src="js/main.js"></script>
+<script>
+  fetch('nav.html').then(r=>r.text()).then(h=>{document.getElementById('navbar-placeholder').innerHTML=h;});
+
+  function enviarMensaje() {
+    const nombre   = document.getElementById('c-nombre');
+    const telefono = document.getElementById('c-telefono');
+    const correo   = document.getElementById('c-correo');
+    const mensaje  = document.getElementById('c-mensaje');
+    const alerta   = document.getElementById('alertaContacto');
+    let ok = true;
+
+    // Validar nombre
+    const gnombre = nombre.closest('.form-group');
+    if (!Validar.textoMin(nombre.value, 3)) {
+      marcarInput(nombre, false); mostrarError(gnombre, 'Ingresa tu nombre completo.'); ok = false;
+    } else { marcarInput(nombre, true); limpiarError(gnombre); }
+
+    // Validar teléfono
+    const gtel = telefono.closest('.form-group');
+    if (!Validar.telefono(telefono.value)) {
+      marcarInput(telefono, false); mostrarError(gtel, 'Teléfono inválido (09... ó 02..., 10 dígitos).'); ok = false;
+    } else { marcarInput(telefono, true); limpiarError(gtel); }
+
+    // Validar correo
+    const gcorreo = correo.closest('.form-group');
+    if (!Validar.correo(correo.value)) {
+      marcarInput(correo, false); mostrarError(gcorreo, 'Correo inválido.'); ok = false;
+    } else { marcarInput(correo, true); limpiarError(gcorreo); }
+
+    // Validar mensaje
+    const gmensaje = mensaje.closest('.form-group');
+    if (!Validar.textoMin(mensaje.value, 10)) {
+      mensaje.classList.add('error'); mostrarError(gmensaje, 'El mensaje debe tener al menos 10 caracteres.'); ok = false;
+    } else { mensaje.classList.remove('error'); limpiarError(gmensaje); }
+
+    if (ok) mostrarAlerta(alerta, 'success', 'Mensaje enviado. Nos comunicaremos contigo pronto. ¡Gracias!');
+  }
+</script>
+</body>
+</html>
