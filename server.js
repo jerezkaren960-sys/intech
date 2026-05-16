@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 3000;
 // ── Middlewares ──────────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));   // sirve los HTML estáticos
+app.use(express.static(path.join(__dirname, 'public')));   // ✅ CAMBIADO: sirve archivos desde public/
 
 // ── Pool de conexión MySQL ───────────────────────────────────
 const pool = mysql.createPool({
@@ -59,8 +59,8 @@ function validarCorreo(correo) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo);
 }
 
-// ── Rutas de página (SPA‑like) ───────────────────────────────
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+// ── Rutas de página ───────────────────────────────────────────
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html'))); // ✅ CAMBIADO
 
 // ╔══════════════════════════════════════════════════════════╗
 // ║  API — CLIENTES                                          ║
@@ -70,7 +70,7 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/api/clientes', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM clientes ORDER BY fecha_registro DESC'
+        'SELECT * FROM clientes ORDER BY fecha_registro DESC'
     );
     res.json({ ok: true, data: rows });
   } catch (err) {
@@ -111,8 +111,8 @@ app.post('/api/clientes', async (req, res) => {
 
   try {
     const [result] = await pool.query(
-      'INSERT INTO clientes (cedula, nombre, apellido, telefono, correo) VALUES (?,?,?,?,?)',
-      [cedula.trim(), nombre.trim(), apellido.trim(), telefono.trim(), correo.trim().toLowerCase()]
+        'INSERT INTO clientes (cedula, nombre, apellido, telefono, correo) VALUES (?,?,?,?,?)',
+        [cedula.trim(), nombre.trim(), apellido.trim(), telefono.trim(), correo.trim().toLowerCase()]
     );
     res.status(201).json({ ok: true, mensaje: 'Cliente registrado exitosamente.', id: result.insertId });
   } catch (err) {
@@ -137,8 +137,8 @@ app.put('/api/clientes/:id', async (req, res) => {
 
   try {
     await pool.query(
-      'UPDATE clientes SET cedula=?, nombre=?, apellido=?, telefono=?, correo=? WHERE id=?',
-      [cedula, nombre, apellido, telefono, correo, req.params.id]
+        'UPDATE clientes SET cedula=?, nombre=?, apellido=?, telefono=?, correo=? WHERE id=?',
+        [cedula, nombre, apellido, telefono, correo, req.params.id]
     );
     res.json({ ok: true, mensaje: 'Cliente actualizado.' });
   } catch (err) {
@@ -205,8 +205,8 @@ app.post('/api/productos', async (req, res) => {
 
   try {
     const [result] = await pool.query(
-      'INSERT INTO productos (numero_serie, descripcion, marca, precio_compra, margen_ganancia, cantidad_stock, estado) VALUES (?,?,?,?,?,?,?)',
-      [numero_serie.trim(), descripcion.trim(), marca.trim(), precio_compra, margen, cantidad_stock, estado]
+        'INSERT INTO productos (numero_serie, descripcion, marca, precio_compra, margen_ganancia, cantidad_stock, estado) VALUES (?,?,?,?,?,?,?)',
+        [numero_serie.trim(), descripcion.trim(), marca.trim(), precio_compra, margen, cantidad_stock, estado]
     );
     res.status(201).json({ ok: true, mensaje: 'Producto registrado exitosamente.', id: result.insertId });
   } catch (err) {
@@ -220,8 +220,8 @@ app.put('/api/productos/:id', async (req, res) => {
   const { numero_serie, descripcion, marca, precio_compra, margen_ganancia, cantidad_stock, estado } = req.body;
   try {
     await pool.query(
-      'UPDATE productos SET numero_serie=?, descripcion=?, marca=?, precio_compra=?, margen_ganancia=?, cantidad_stock=?, estado=? WHERE id=?',
-      [numero_serie, descripcion, marca, precio_compra, margen_ganancia || 30, cantidad_stock, estado, req.params.id]
+        'UPDATE productos SET numero_serie=?, descripcion=?, marca=?, precio_compra=?, margen_ganancia=?, cantidad_stock=?, estado=? WHERE id=?',
+        [numero_serie, descripcion, marca, precio_compra, margen_ganancia || 30, cantidad_stock, estado, req.params.id]
     );
     res.json({ ok: true, mensaje: 'Producto actualizado.' });
   } catch (err) {
@@ -248,12 +248,12 @@ app.delete('/api/productos/:id', async (req, res) => {
 app.get('/api/ventas', async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT v.*, 
+      SELECT v.*,
              CONCAT(c.nombre,' ',c.apellido) AS cliente_nombre, c.cedula,
              p.descripcion AS producto_nombre, p.numero_serie
       FROM ventas v
-      JOIN clientes c  ON c.id = v.cliente_id
-      JOIN productos p ON p.id = v.producto_id
+             JOIN clientes c  ON c.id = v.cliente_id
+             JOIN productos p ON p.id = v.producto_id
       ORDER BY v.fecha_registro DESC
     `);
     res.json({ ok: true, data: rows });
@@ -277,8 +277,8 @@ app.post('/api/ventas', async (req, res) => {
 
     // Verificar stock
     const [[producto]] = await conn.query(
-      'SELECT pvp, cantidad_stock FROM productos WHERE id = ? AND estado = "Activo" FOR UPDATE',
-      [producto_id]
+        'SELECT pvp, cantidad_stock FROM productos WHERE id = ? AND estado = "Activo" FOR UPDATE',
+        [producto_id]
     );
     if (!producto)
       throw { status: 404, mensaje: 'Producto no encontrado o inactivo.' };
@@ -294,14 +294,14 @@ app.post('/api/ventas', async (req, res) => {
 
     // Insertar venta
     const [result] = await conn.query(
-      'INSERT INTO ventas (fecha_venta, cliente_id, producto_id, cantidad, subtotal, iva, total) VALUES (?,?,?,?,?,?,?)',
-      [fecha_venta, cliente_id, producto_id, qty, subtotal, iva, total]
+        'INSERT INTO ventas (fecha_venta, cliente_id, producto_id, cantidad, subtotal, iva, total) VALUES (?,?,?,?,?,?,?)',
+        [fecha_venta, cliente_id, producto_id, qty, subtotal, iva, total]
     );
 
     // Descontar stock
     await conn.query(
-      'UPDATE productos SET cantidad_stock = cantidad_stock - ? WHERE id = ?',
-      [qty, producto_id]
+        'UPDATE productos SET cantidad_stock = cantidad_stock - ? WHERE id = ?',
+        [qty, producto_id]
     );
 
     await conn.commit();
@@ -324,8 +324,8 @@ app.delete('/api/ventas/:id', async (req, res) => {
 
     // Restaurar stock
     await conn.query(
-      'UPDATE productos SET cantidad_stock = cantidad_stock + ? WHERE id = ?',
-      [venta.cantidad, venta.producto_id]
+        'UPDATE productos SET cantidad_stock = cantidad_stock + ? WHERE id = ?',
+        [venta.cantidad, venta.producto_id]
     );
     await conn.query('DELETE FROM ventas WHERE id = ?', [req.params.id]);
     await conn.commit();
@@ -354,5 +354,5 @@ app.get('/api/estadisticas', async (req, res) => {
 
 // ── Iniciar servidor ──────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`✅  InTech Server corriendo en http://localhost:${PORT}`);
+  console.log(`✅ InTech Server corriendo en http://localhost:${PORT}`);
 });
