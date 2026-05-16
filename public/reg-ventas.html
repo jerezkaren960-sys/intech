@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Registro de Ventas — InTech</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div id="navbar-placeholder"></div>
@@ -78,10 +78,10 @@
       <div class="table-scroll">
         <table>
           <thead>
-            <tr><th>ID</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Cantidad</th><th>Subtotal</th><th>Total</th><th>Acciones</th></tr>
+          <tr><th>ID</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Cantidad</th><th>Subtotal</th><th>Total</th><th>Acciones</th></tr>
           </thead>
           <tbody id="tbodyVentas">
-            <tr class="empty-row"><td colspan="8">⏳ Cargando...</td></tr>
+          <tr class="empty-row"><td colspan="8">⏳ Cargando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -94,10 +94,86 @@
     <p>© 2025 <strong>InTech</strong> — <a href="mailto:info@intech.ec">info@intech.ec</a></p>
   </div>
 </footer>
-<script src="js/main.js"></script>
+<script src="main.js"></script>
 <script>
+  // Función para formatear dinero
+  window.fmt$ = window.fmt$ || function(valor) {
+    return '$' + parseFloat(valor || 0).toLocaleString('es-EC', {minimumFractionDigits: 2});
+  };
+
+  // Funciones auxiliares
+  function marcarInput(input, valido) {
+    if (!input) return;
+    if (valido) {
+      input.classList.remove('error');
+      input.style.border = '';
+    } else {
+      input.classList.add('error');
+      input.style.border = '2px solid #e74c3c';
+    }
+  }
+
+  function mostrarError(grupo, mensaje) {
+    if (!grupo) return;
+    let span = grupo.querySelector('.error-msg');
+    if (span) span.textContent = mensaje;
+  }
+
+  function limpiarError(grupo) {
+    if (!grupo) return;
+    let span = grupo.querySelector('.error-msg');
+    if (span) span.textContent = '';
+  }
+
+  function mostrarAlerta(elemento, tipo, mensaje) {
+    if (!elemento) return;
+    elemento.textContent = mensaje;
+    elemento.className = `alerta alerta-${tipo}`;
+    setTimeout(() => {
+      if (elemento) {
+        elemento.textContent = '';
+        elemento.className = 'alerta';
+      }
+    }, 5000);
+  }
+
+  function filtrarTabla(input, tbodyId) {
+    if (!input) return;
+    input.addEventListener('keyup', function() {
+      const filtro = this.value.toLowerCase();
+      const filas = document.querySelectorAll(`#${tbodyId} tr`);
+      filas.forEach(fila => {
+        const texto = fila.innerText.toLowerCase();
+        fila.style.display = texto.includes(filtro) ? '' : 'none';
+      });
+    });
+  }
+
+  // API helpers
+  async function apiPost(url, data) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return await res.json();
+  }
+
+  async function apiGet(url) {
+    const res = await fetch(url);
+    return await res.json();
+  }
+
+  async function apiDel(url) {
+    const res = await fetch(url, { method: 'DELETE' });
+    return await res.json();
+  }
+
+  // Cargar navbar
   fetch('nav.html').then(r=>r.text()).then(h=>{document.getElementById('navbar-placeholder').innerHTML=h;});
-  filtrarTabla(document.getElementById('buscarVenta'), 'tbodyVentas');
+
+  const buscarInput = document.getElementById('buscarVenta');
+  if (buscarInput) filtrarTabla(buscarInput, 'tbodyVentas');
 
   // Precio del producto seleccionado (PVP)
   let pvpSeleccionado = 0;
@@ -106,68 +182,87 @@
   /* ─── Inicializar ───────────────────────────────── */
   async function inicializar() {
     // Fecha de hoy
-    document.getElementById('v-fecha').value = new Date().toISOString().split('T')[0];
+    const fechaInput = document.getElementById('v-fecha');
+    if (fechaInput) {
+      fechaInput.value = new Date().toISOString().split('T')[0];
+    }
 
     // Cargar clientes
     try {
-      const rc = await apiGet('/clientes');
+      const rc = await apiGet('/api/clientes');
       const sel = document.getElementById('v-cliente');
-      if (rc.ok && rc.data.length) {
-        rc.data.forEach(c => {
-          const o = document.createElement('option');
-          o.value = c.id;
-          o.textContent = `${c.nombre} ${c.apellido} — ${c.cedula}`;
-          sel.appendChild(o);
-        });
+      if (sel) {
+        sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+        if (rc.ok && rc.data && rc.data.length) {
+          rc.data.forEach(c => {
+            const o = document.createElement('option');
+            o.value = c.id;
+            o.textContent = `${c.nombre} ${c.apellido} — ${c.cedula}`;
+            sel.appendChild(o);
+          });
+        }
       }
-    } catch {}
+    } catch (err) {
+      console.error('Error cargando clientes:', err);
+    }
 
     // Cargar productos activos con stock
     try {
-      const rp = await apiGet('/productos');
+      const rp = await apiGet('/api/productos');
       const sel = document.getElementById('v-producto');
-      if (rp.ok && rp.data.length) {
-        rp.data.filter(p => p.estado === 'Activo').forEach(p => {
-          const o = document.createElement('option');
-          o.value    = p.id;
-          o.dataset.pvp   = p.pvp;
-          o.dataset.stock = p.cantidad_stock;
-          o.textContent = `${p.descripcion} — ${p.marca} | PVP: ${fmt$(p.pvp)} | Stock: ${p.cantidad_stock}`;
-          sel.appendChild(o);
-        });
+      if (sel) {
+        sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+        if (rp.ok && rp.data && rp.data.length) {
+          rp.data.filter(p => p.estado === 'Activo').forEach(p => {
+            const o = document.createElement('option');
+            o.value = p.id;
+            o.dataset.pvp = p.pvp || 0;
+            o.dataset.stock = p.cantidad_stock || 0;
+            o.textContent = `${p.descripcion} — ${p.marca} | PVP: ${window.fmt$(p.pvp)} | Stock: ${p.cantidad_stock}`;
+            sel.appendChild(o);
+          });
+        }
       }
-    } catch {}
+    } catch (err) {
+      console.error('Error cargando productos:', err);
+    }
 
     cargarVentas();
   }
 
   /* ─── Seleccionar producto ──────────────────────── */
-  function seleccionarProducto() {
+  window.seleccionarProducto = function() {
     const sel = document.getElementById('v-producto');
+    if (!sel || !sel.selectedIndex) return;
     const opt = sel.options[sel.selectedIndex];
-    pvpSeleccionado   = parseFloat(opt.dataset.pvp)   || 0;
-    stockSeleccionado = parseInt(opt.dataset.stock)    || 0;
-    document.getElementById('v-stock').value = stockSeleccionado + ' unidades';
+    pvpSeleccionado = parseFloat(opt.dataset.pvp) || 0;
+    stockSeleccionado = parseInt(opt.dataset.stock) || 0;
+    const stockInput = document.getElementById('v-stock');
+    if (stockInput) stockInput.value = stockSeleccionado + ' unidades';
     calcularVenta();
-  }
+  };
 
   /* ─── Cálculo automático ────────────────────────── */
-  function calcularVenta() {
+  window.calcularVenta = function() {
     const cantidad = parseInt(document.getElementById('v-cantidad').value) || 0;
     const subtotal = pvpSeleccionado * cantidad / 1.12;
-    const iva      = pvpSeleccionado * cantidad - subtotal;
-    const total    = pvpSeleccionado * cantidad;
-    document.getElementById('v-subtotal').value = fmt$(subtotal);
-    document.getElementById('v-iva').value      = fmt$(iva);
-    document.getElementById('v-total').value    = fmt$(total);
-  }
+    const iva = pvpSeleccionado * cantidad - subtotal;
+    const total = pvpSeleccionado * cantidad;
+    const subtotalInput = document.getElementById('v-subtotal');
+    const ivaInput = document.getElementById('v-iva');
+    const totalInput = document.getElementById('v-total');
+    if (subtotalInput) subtotalInput.value = window.fmt$(subtotal);
+    if (ivaInput) ivaInput.value = window.fmt$(iva);
+    if (totalInput) totalInput.value = window.fmt$(total);
+  };
 
   /* ─── Cargar tabla ventas ───────────────────────── */
   async function cargarVentas() {
     const tbody = document.getElementById('tbodyVentas');
+    if (!tbody) return;
     try {
-      const res = await apiGet('/ventas');
-      if (!res.ok || !res.data.length) {
+      const res = await apiGet('/api/ventas');
+      if (!res.ok || !res.data || !res.data.length) {
         tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No hay ventas registradas.</td></tr>';
         return;
       }
@@ -175,99 +270,144 @@
         <tr>
           <td>#${v.id}</td>
           <td>${v.fecha_venta}</td>
-          <td>${v.cliente_nombre}</td>
-          <td>${v.producto_nombre}</td>
+          <td>${v.cliente_nombre || '—'}</td>
+          <td>${v.producto_nombre || '—'}</td>
           <td style="text-align:center">${v.cantidad}</td>
-          <td>${fmt$(v.subtotal)}</td>
-          <td><strong>${fmt$(v.total)}</strong></td>
+          <td>${window.fmt$(v.subtotal)}</td>
+          <td><strong>${window.fmt$(v.total)}</strong></td>
           <td><button class="btn btn-sm btn-danger" onclick="anularVenta(${v.id})">🗑️ Anular</button></td>
-        </tr>`).join('');
-    } catch {
+        </tr>`);
+    } catch (err) {
+      console.error('Error:', err);
       tbody.innerHTML = '<tr class="empty-row"><td colspan="8">⚠️ Error de conexión.</td></tr>';
     }
   }
 
   /* ─── Registrar venta ─────────────────────────── */
-  async function registrarVenta() {
-    const fecha    = document.getElementById('v-fecha');
+  window.registrarVenta = async function() {
+    const fecha = document.getElementById('v-fecha');
     const clienteS = document.getElementById('v-cliente');
-    const prodS    = document.getElementById('v-producto');
+    const prodS = document.getElementById('v-producto');
     const cantidad = document.getElementById('v-cantidad');
-    const alerta   = document.getElementById('alertaVenta');
+    const alerta = document.getElementById('alertaVenta');
     let ok = true;
 
     // Validar fecha
-    const gf = fecha.closest('.form-group');
-    if (!fecha.value) { marcarInput(fecha, false); mostrarError(gf, 'Selecciona una fecha.'); ok = false; }
-    else { marcarInput(fecha, true); limpiarError(gf); }
+    const gf = fecha ? fecha.closest('.form-group') : null;
+    if (!fecha || !fecha.value) {
+      if (fecha) marcarInput(fecha, false);
+      if (gf) mostrarError(gf, 'Selecciona una fecha.');
+      ok = false;
+    } else {
+      if (fecha) marcarInput(fecha, true);
+      if (gf) limpiarError(gf);
+    }
 
     // Validar cliente
-    const gc = clienteS.closest('.form-group');
-    if (!clienteS.value) { mostrarError(gc, 'Selecciona un cliente.'); ok = false; }
-    else limpiarError(gc);
+    const gc = clienteS ? clienteS.closest('.form-group') : null;
+    if (!clienteS || !clienteS.value) {
+      if (gc) mostrarError(gc, 'Selecciona un cliente.');
+      ok = false;
+    } else if (gc) limpiarError(gc);
 
     // Validar producto
-    const gp = prodS.closest('.form-group');
-    if (!prodS.value) { mostrarError(gp, 'Selecciona un producto.'); ok = false; }
-    else limpiarError(gp);
+    const gp = prodS ? prodS.closest('.form-group') : null;
+    if (!prodS || !prodS.value) {
+      if (gp) mostrarError(gp, 'Selecciona un producto.');
+      ok = false;
+    } else if (gp) limpiarError(gp);
 
     // Validar cantidad
-    const gq = cantidad.closest('.form-group');
-    const qty = parseInt(cantidad.value);
-    if (!Number.isInteger(qty) || qty < 1) { marcarInput(cantidad, false); mostrarError(gq, 'La cantidad debe ser mayor a 0.'); ok = false; }
-    else if (qty > stockSeleccionado) { marcarInput(cantidad, false); mostrarError(gq, `Stock insuficiente. Disponible: ${stockSeleccionado}`); ok = false; }
-    else { marcarInput(cantidad, true); limpiarError(gq); }
+    const gq = cantidad ? cantidad.closest('.form-group') : null;
+    const qty = cantidad ? parseInt(cantidad.value) : 0;
+    if (!cantidad || !Number.isInteger(qty) || qty < 1) {
+      if (cantidad) marcarInput(cantidad, false);
+      if (gq) mostrarError(gq, 'La cantidad debe ser mayor a 0.');
+      ok = false;
+    } else if (qty > stockSeleccionado) {
+      if (cantidad) marcarInput(cantidad, false);
+      if (gq) mostrarError(gq, `Stock insuficiente. Disponible: ${stockSeleccionado}`);
+      ok = false;
+    } else {
+      if (cantidad) marcarInput(cantidad, true);
+      if (gq) limpiarError(gq);
+    }
 
-    if (!ok) { mostrarAlerta(alerta, 'error', 'Corrige los errores del formulario.'); return; }
+    if (!ok) {
+      mostrarAlerta(alerta, 'error', 'Corrige los errores del formulario.');
+      return;
+    }
 
     const btn = document.getElementById('btnRegistrarVenta');
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Procesando...';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Procesando...';
+    }
 
     try {
-      const res = await apiPost('/ventas', {
+      const res = await apiPost('/api/ventas', {
         fecha_venta: fecha.value,
-        cliente_id:  parseInt(clienteS.value),
+        cliente_id: parseInt(clienteS.value),
         producto_id: parseInt(prodS.value),
-        cantidad:    qty,
+        cantidad: qty,
       });
       if (res.ok) {
-        mostrarAlerta(alerta, 'success', `${res.mensaje} Total: ${fmt$(res.total)}`);
+        mostrarAlerta(alerta, 'success', `${res.mensaje} Total: ${window.fmt$(res.total)}`);
         limpiarFormVenta();
         // Recargar selectores para actualizar stock
-        document.getElementById('v-producto').innerHTML = '<option value="">-- Seleccionar --</option>';
         inicializar();
       } else {
-        mostrarAlerta(alerta, 'error', res.mensaje);
+        mostrarAlerta(alerta, 'error', res.mensaje || 'Error al registrar venta');
       }
-    } catch {
+    } catch (err) {
+      console.error('Error:', err);
       mostrarAlerta(alerta, 'error', 'Error de conexión.');
     } finally {
-      btn.disabled = false; btn.innerHTML = '🛒 Registrar Venta';
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '🛒 Registrar Venta';
+      }
     }
-  }
+  };
 
   /* ─── Anular venta ──────────────────────────────── */
-  async function anularVenta(id) {
+  window.anularVenta = async function(id) {
     if (!confirm(`¿Anular venta #${id}? El stock del producto será restaurado.`)) return;
-    const res = await apiDel(`/ventas/${id}`);
-    mostrarAlerta(document.getElementById('alertaVenta'), res.ok ? 'success' : 'error', res.mensaje);
-    if (res.ok) { inicializar(); }
-  }
+    try {
+      const res = await apiDel(`/api/ventas/${id}`);
+      const alerta = document.getElementById('alertaVenta');
+      mostrarAlerta(alerta, res.ok ? 'success' : 'error', res.mensaje);
+      if (res.ok) {
+        inicializar();
+      }
+    } catch (err) {
+      console.error('Error:', err);
+    }
+  };
 
   /* ─── Limpiar form ──────────────────────────────── */
-  function limpiarFormVenta() {
-    document.getElementById('v-fecha').value = new Date().toISOString().split('T')[0];
-    document.getElementById('v-cliente').value  = '';
-    document.getElementById('v-producto').value = '';
-    document.getElementById('v-cantidad').value = '1';
-    pvpSeleccionado = 0; stockSeleccionado = 0;
-    document.getElementById('v-stock').value   = '0 unidades';
-    document.getElementById('v-subtotal').value = '$0.00';
-    document.getElementById('v-iva').value      = '$0.00';
-    document.getElementById('v-total').value    = '$0.00';
+  window.limpiarFormVenta = function() {
+    const fechaInput = document.getElementById('v-fecha');
+    if (fechaInput) fechaInput.value = new Date().toISOString().split('T')[0];
+    const clienteSelect = document.getElementById('v-cliente');
+    if (clienteSelect) clienteSelect.value = '';
+    const productSelect = document.getElementById('v-producto');
+    if (productSelect) productSelect.value = '';
+    const cantidadInput = document.getElementById('v-cantidad');
+    if (cantidadInput) cantidadInput.value = '1';
+    pvpSeleccionado = 0;
+    stockSeleccionado = 0;
+    const stockInput = document.getElementById('v-stock');
+    if (stockInput) stockInput.value = '0 unidades';
+    const subtotalInput = document.getElementById('v-subtotal');
+    if (subtotalInput) subtotalInput.value = '$0.00';
+    const ivaInput = document.getElementById('v-iva');
+    if (ivaInput) ivaInput.value = '$0.00';
+    const totalInput = document.getElementById('v-total');
+    if (totalInput) totalInput.value = '$0.00';
     document.querySelectorAll('.error-msg').forEach(e => e.textContent = '');
     document.querySelectorAll('input.error, input.ok, select.error, select.ok').forEach(el => el.classList.remove('error','ok'));
-  }
+  };
 
   inicializar();
 </script>

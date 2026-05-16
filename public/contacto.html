@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Contacto — InTech</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div id="navbar-placeholder"></div>
@@ -83,9 +83,42 @@
     <p>© 2025 <strong>InTech</strong> — <a href="mailto:info@intech.ec">info@intech.ec</a></p>
   </div>
 </footer>
-<script src="js/main.js"></script>
+<script src="main.js"></script>
 <script>
   fetch('nav.html').then(r=>r.text()).then(h=>{document.getElementById('navbar-placeholder').innerHTML=h;});
+
+  // Funciones auxiliares
+  function Validar = {
+    textoMin: (val, min) => val && val.trim().length >= min,
+    telefono: (tel) => /^(09|0[2-7])\d{8}$/.test(tel),
+    correo: (mail) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)
+  };
+
+  function marcarInput(input, valido) {
+    if (valido) {
+      input.classList.remove('error');
+      input.style.border = '';
+    } else {
+      input.classList.add('error');
+      input.style.border = '2px solid #e74c3c';
+    }
+  }
+
+  function mostrarError(grupo, mensaje) {
+    let span = grupo.querySelector('.error-msg');
+    if (span) span.textContent = mensaje;
+  }
+
+  function limpiarError(grupo) {
+    let span = grupo.querySelector('.error-msg');
+    if (span) span.textContent = '';
+  }
+
+  function mostrarAlerta(elemento, tipo, mensaje) {
+    elemento.textContent = mensaje;
+    elemento.className = `alerta alerta-${tipo}`;
+    setTimeout(() => { elemento.textContent = ''; elemento.className = 'alerta'; }, 5000);
+  }
 
   function enviarMensaje() {
     const nombre   = document.getElementById('c-nombre');
@@ -95,25 +128,21 @@
     const alerta   = document.getElementById('alertaContacto');
     let ok = true;
 
-    // Validar nombre
     const gnombre = nombre.closest('.form-group');
     if (!Validar.textoMin(nombre.value, 3)) {
       marcarInput(nombre, false); mostrarError(gnombre, 'Ingresa tu nombre completo.'); ok = false;
     } else { marcarInput(nombre, true); limpiarError(gnombre); }
 
-    // Validar teléfono
     const gtel = telefono.closest('.form-group');
     if (!Validar.telefono(telefono.value)) {
       marcarInput(telefono, false); mostrarError(gtel, 'Teléfono inválido (09... ó 02..., 10 dígitos).'); ok = false;
     } else { marcarInput(telefono, true); limpiarError(gtel); }
 
-    // Validar correo
     const gcorreo = correo.closest('.form-group');
     if (!Validar.correo(correo.value)) {
       marcarInput(correo, false); mostrarError(gcorreo, 'Correo inválido.'); ok = false;
     } else { marcarInput(correo, true); limpiarError(gcorreo); }
 
-    // Validar mensaje
     const gmensaje = mensaje.closest('.form-group');
     if (!Validar.textoMin(mensaje.value, 10)) {
       mensaje.classList.add('error'); mostrarError(gmensaje, 'El mensaje debe tener al menos 10 caracteres.'); ok = false;

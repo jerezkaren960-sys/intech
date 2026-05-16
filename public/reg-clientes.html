@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Registro de Clientes — InTech</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div id="navbar-placeholder"></div>
@@ -67,10 +67,10 @@
       <div class="table-scroll">
         <table>
           <thead>
-            <tr><th>Cédula</th><th>Nombre</th><th>Apellido</th><th>Teléfono</th><th>Correo</th><th>Acciones</th></tr>
+          <tr><th>Cédula</th><th>Nombre</th><th>Apellido</th><th>Teléfono</th><th>Correo</th><th>Acciones</th></tr>
           </thead>
           <tbody id="tbodyClientes">
-            <tr class="empty-row"><td colspan="6">⏳ Cargando...</td></tr>
+          <tr class="empty-row"><td colspan="6">⏳ Cargando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -83,35 +83,151 @@
     <p>© 2025 <strong>InTech</strong> — <a href="mailto:info@intech.ec">info@intech.ec</a></p>
   </div>
 </footer>
-<script src="js/main.js"></script>
+<script src="main.js"></script>
 <script>
+  // Función para formatear dinero (si no existe)
+  window.fmt$ = window.fmt$ || function(valor) {
+    return '$' + parseFloat(valor || 0).toLocaleString('es-EC', {minimumFractionDigits: 2});
+  };
+
+  // Funciones de validación
+  const Validar = {
+    cedulaEcuatoriana: function(cedula) {
+      if (!/^\d{10}$/.test(cedula)) return false;
+      const provincia = parseInt(cedula.substring(0, 2));
+      if (provincia < 1 || provincia > 24) return false;
+      const digitos = cedula.split('').map(Number);
+      const digitoVerificador = digitos[9];
+      let suma = 0;
+      for (let i = 0; i < 9; i++) {
+        let val = digitos[i];
+        if (i % 2 === 0) {
+          val *= 2;
+          if (val > 9) val -= 9;
+        }
+        suma += val;
+      }
+      const residuo = suma % 10;
+      const calculado = residuo === 0 ? 0 : 10 - residuo;
+      return calculado === digitoVerificador;
+    },
+    textoMin: function(val, min) {
+      return val && val.trim().length >= min;
+    },
+    telefono: function(tel) {
+      return /^(09|0[2-7])\d{8}$/.test(tel);
+    },
+    correo: function(mail) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail);
+    }
+  };
+
+  // Funciones auxiliares
+  function marcarInput(input, valido) {
+    if (valido) {
+      input.classList.remove('error');
+      input.style.border = '';
+    } else {
+      input.classList.add('error');
+      input.style.border = '2px solid #e74c3c';
+    }
+  }
+
+  function mostrarError(grupo, mensaje) {
+    let span = grupo.querySelector('.error-msg');
+    if (span) span.textContent = mensaje;
+  }
+
+  function limpiarError(grupo) {
+    let span = grupo.querySelector('.error-msg');
+    if (span) span.textContent = '';
+  }
+
+  function mostrarAlerta(elemento, tipo, mensaje) {
+    if (!elemento) return;
+    elemento.textContent = mensaje;
+    elemento.className = `alerta alerta-${tipo}`;
+    setTimeout(() => {
+      if (elemento) {
+        elemento.textContent = '';
+        elemento.className = 'alerta';
+      }
+    }, 5000);
+  }
+
+  function filtrarTabla(input, tbodyId) {
+    if (!input) return;
+    input.addEventListener('keyup', function() {
+      const filtro = this.value.toLowerCase();
+      const filas = document.querySelectorAll(`#${tbodyId} tr`);
+      filas.forEach(fila => {
+        const texto = fila.innerText.toLowerCase();
+        fila.style.display = texto.includes(filtro) ? '' : 'none';
+      });
+    });
+  }
+
+  // Cargar navbar
   fetch('nav.html').then(r=>r.text()).then(h=>{document.getElementById('navbar-placeholder').innerHTML=h;});
-  filtrarTabla(document.getElementById('buscarCliente'), 'tbodyClientes');
+
+  const buscarInput = document.getElementById('buscarCliente');
+  if (buscarInput) filtrarTabla(buscarInput, 'tbodyClientes');
 
   /* ─── Cargar tabla ─────────────────────────────── */
   async function cargarClientes() {
     const tbody = document.getElementById('tbodyClientes');
     try {
-      const res = await apiGet('/clientes');
-      if (!res.ok || !res.data.length) {
+      const res = await fetch('/api/clientes');
+      const data = await res.json();
+      if (!data.ok || !data.data || !data.data.length) {
         tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No hay clientes registrados.</td></tr>';
         return;
       }
-      tbody.innerHTML = res.data.map(c => `
+      tbody.innerHTML = data.data.map(c => `
         <tr>
-          <td>${c.cedula}</td>
-          <td>${c.nombre}</td>
-          <td>${c.apellido}</td>
-          <td>${c.telefono}</td>
-          <td>${c.correo}</td>
+          <td>${c.cedula || '—'}</td>
+          <td>${c.nombre || '—'}</td>
+          <td>${c.apellido || '—'}</td>
+          <td>${c.telefono || '—'}</td>
+          <td>${c.correo || '—'}</td>
           <td>
             <button class="btn btn-sm btn-primary" onclick="editarCliente(${c.id})">✏️</button>
             <button class="btn btn-sm btn-danger"  onclick="eliminarCliente(${c.id}, '${c.nombre} ${c.apellido}')">🗑️</button>
-          </td>
-        </tr>`).join('');
-    } catch {
+           </td>
+         </tr>`).join('');
+    } catch (err) {
+      console.error('Error cargando clientes:', err);
       tbody.innerHTML = '<tr class="empty-row"><td colspan="6">⚠️ Error de conexión.</td></tr>';
     }
+  }
+
+  /* ─── API helpers ───────────────────────────────── */
+  async function apiPost(url, data) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return await res.json();
+  }
+
+  async function apiGet(url) {
+    const res = await fetch(url);
+    return await res.json();
+  }
+
+  async function apiPut(url, data) {
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return await res.json();
+  }
+
+  async function apiDel(url) {
+    const res = await fetch(url, { method: 'DELETE' });
+    return await res.json();
   }
 
   /* ─── Validar y guardar ────────────────────────── */
@@ -155,18 +271,19 @@
       };
       let res;
       if (editId) {
-        res = await apiPut(`/clientes/${editId}`, data);
+        res = await apiPut(`/api/clientes/${editId}`, data);
       } else {
-        res = await apiPost('/clientes', data);
+        res = await apiPost('/api/clientes', data);
       }
       if (res.ok) {
         mostrarAlerta(alerta, 'success', res.mensaje);
         limpiarFormCliente();
         cargarClientes();
       } else {
-        mostrarAlerta(alerta, 'error', res.mensaje);
+        mostrarAlerta(alerta, 'error', res.mensaje || 'Error al guardar');
       }
-    } catch {
+    } catch (err) {
+      console.error('Error:', err);
       mostrarAlerta(alerta, 'error', 'Error de conexión con el servidor.');
     } finally {
       btn.disabled = false;
@@ -175,43 +292,55 @@
   }
 
   /* ─── Editar ────────────────────────────────────── */
-  async function editarCliente(id) {
+  window.editarCliente = async function(id) {
     try {
-      const res = await apiGet(`/clientes/${id}`);
+      const res = await apiGet(`/api/clientes/${id}`);
       if (!res.ok) return;
       const c = res.data;
-      document.getElementById('c-cedula').value   = c.cedula;
-      document.getElementById('c-nombre').value   = c.nombre;
-      document.getElementById('c-apellido').value = c.apellido;
-      document.getElementById('c-telefono').value = c.telefono;
-      document.getElementById('c-correo').value   = c.correo;
+      document.getElementById('c-cedula').value   = c.cedula || '';
+      document.getElementById('c-nombre').value   = c.nombre || '';
+      document.getElementById('c-apellido').value = c.apellido || '';
+      document.getElementById('c-telefono').value = c.telefono || '';
+      document.getElementById('c-correo').value   = c.correo || '';
       document.getElementById('c-editId').value   = c.id;
       document.getElementById('btnGuardarCliente').innerHTML = '💾 Actualizar Cliente';
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch { alert('Error al cargar datos del cliente.'); }
-  }
+    } catch (err) {
+      console.error('Error:', err);
+      alert('Error al cargar datos del cliente.');
+    }
+  };
 
   /* ─── Eliminar ──────────────────────────────────── */
-  async function eliminarCliente(id, nombre) {
+  window.eliminarCliente = async function(id, nombre) {
     if (!confirm(`¿Eliminar al cliente "${nombre}"? Esta acción no se puede deshacer.`)) return;
     try {
-      const res = await apiDel(`/clientes/${id}`);
-      mostrarAlerta(document.getElementById('alertaCliente'), res.ok ? 'success' : 'error', res.mensaje);
+      const res = await apiDel(`/api/clientes/${id}`);
+      const alerta = document.getElementById('alertaCliente');
+      mostrarAlerta(alerta, res.ok ? 'success' : 'error', res.mensaje);
       if (res.ok) cargarClientes();
-    } catch { alert('Error de conexión.'); }
-  }
+    } catch (err) {
+      console.error('Error:', err);
+      alert('Error de conexión.');
+    }
+  };
 
   /* ─── Limpiar form ──────────────────────────────── */
-  function limpiarFormCliente() {
+  window.limpiarFormCliente = function() {
     ['c-cedula','c-nombre','c-apellido','c-telefono','c-correo'].forEach(id => {
       const el = document.getElementById(id);
-      el.value = '';
-      el.classList.remove('ok','error');
+      if (el) {
+        el.value = '';
+        el.classList.remove('ok','error');
+        el.style.border = '';
+      }
     });
-    document.getElementById('c-editId').value = '';
-    document.getElementById('btnGuardarCliente').innerHTML = '👤 Guardar Cliente';
+    const editId = document.getElementById('c-editId');
+    if (editId) editId.value = '';
+    const btn = document.getElementById('btnGuardarCliente');
+    if (btn) btn.innerHTML = '👤 Guardar Cliente';
     document.querySelectorAll('.error-msg').forEach(e => e.textContent = '');
-  }
+  };
 
   cargarClientes();
 </script>

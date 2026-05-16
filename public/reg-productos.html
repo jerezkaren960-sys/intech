@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Registro de Productos — InTech</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div id="navbar-placeholder"></div>
@@ -92,10 +92,10 @@
       <div class="table-scroll">
         <table>
           <thead>
-            <tr><th>N° Serie</th><th>Descripción</th><th>Marca</th><th>Precio</th><th>Ganancia</th><th>IVA</th><th>PVP</th><th>Estado (Stock)</th><th>Acciones</th></tr>
+          <tr><th>N° Serie</th><th>Descripción</th><th>Marca</th><th>Precio</th><th>Ganancia</th><th>IVA</th><th>PVP</th><th>Estado (Stock)</th><th>Acciones</th></tr>
           </thead>
           <tbody id="tbodyProductos">
-            <tr class="empty-row"><td colspan="9">⏳ Cargando...</td></tr>
+          <tr class="empty-row"><td colspan="9">⏳ Cargando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -108,13 +108,103 @@
     <p>© 2025 <strong>InTech</strong> — <a href="mailto:info@intech.ec">info@intech.ec</a></p>
   </div>
 </footer>
-<script src="js/main.js"></script>
+<script src="main.js"></script>
 <script>
+  // Función para formatear dinero
+  window.fmt$ = window.fmt$ || function(valor) {
+    return '$' + parseFloat(valor || 0).toLocaleString('es-EC', {minimumFractionDigits: 2});
+  };
+
+  // Funciones de validación
+  const Validar = {
+    serie: function(v) { return v && v.trim().length >= 3; },
+    textoMin: function(v, min) { return v && v.trim().length >= min; },
+    numeroPos: function(v) { return !isNaN(parseFloat(v)) && parseFloat(v) >= 0; },
+    enteroPos: function(v) { return Number.isInteger(Number(v)) && Number(v) >= 0; }
+  };
+
+  // Funciones auxiliares
+  function marcarInput(input, valido) {
+    if (valido) {
+      input.classList.remove('error');
+      input.style.border = '';
+    } else {
+      input.classList.add('error');
+      input.style.border = '2px solid #e74c3c';
+    }
+  }
+
+  function mostrarError(grupo, mensaje) {
+    let span = grupo.querySelector('.error-msg');
+    if (span) span.textContent = mensaje;
+  }
+
+  function limpiarError(grupo) {
+    let span = grupo.querySelector('.error-msg');
+    if (span) span.textContent = '';
+  }
+
+  function mostrarAlerta(elemento, tipo, mensaje) {
+    if (!elemento) return;
+    elemento.textContent = mensaje;
+    elemento.className = `alerta alerta-${tipo}`;
+    setTimeout(() => {
+      if (elemento) {
+        elemento.textContent = '';
+        elemento.className = 'alerta';
+      }
+    }, 5000);
+  }
+
+  function filtrarTabla(input, tbodyId) {
+    if (!input) return;
+    input.addEventListener('keyup', function() {
+      const filtro = this.value.toLowerCase();
+      const filas = document.querySelectorAll(`#${tbodyId} tr`);
+      filas.forEach(fila => {
+        const texto = fila.innerText.toLowerCase();
+        fila.style.display = texto.includes(filtro) ? '' : 'none';
+      });
+    });
+  }
+
+  // Cargar navbar
   fetch('nav.html').then(r=>r.text()).then(h=>{document.getElementById('navbar-placeholder').innerHTML=h;});
-  filtrarTabla(document.getElementById('buscarProducto'), 'tbodyProductos');
+
+  const buscarInput = document.getElementById('buscarProducto');
+  if (buscarInput) filtrarTabla(buscarInput, 'tbodyProductos');
+
+  // API helpers
+  async function apiPost(url, data) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return await res.json();
+  }
+
+  async function apiGet(url) {
+    const res = await fetch(url);
+    return await res.json();
+  }
+
+  async function apiPut(url, data) {
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return await res.json();
+  }
+
+  async function apiDel(url) {
+    const res = await fetch(url, { method: 'DELETE' });
+    return await res.json();
+  }
 
   /* ─── Cálculo automático ─────────────────────────── */
-  function calcularProducto() {
+  window.calcularProducto = function() {
     const precio = parseFloat(document.getElementById('p-precio').value) || 0;
     const margen = parseFloat(document.getElementById('p-margen').value) || 0;
     const stock  = parseInt(document.getElementById('p-stock').value)    || 0;
@@ -129,23 +219,23 @@
     document.getElementById('c-iva').value       = fmt$(iva);
     document.getElementById('c-pvp').value       = fmt$(pvp);
     document.getElementById('c-total-inv').value = fmt$(totalInv);
-  }
+  };
 
   /* ─── Cargar tabla ─────────────────────────────── */
   async function cargarProductos() {
     const tbody = document.getElementById('tbodyProductos');
     try {
-      const res = await apiGet('/productos');
-      if (!res.ok || !res.data.length) {
+      const res = await apiGet('/api/productos');
+      if (!res.ok || !res.data || !res.data.length) {
         tbody.innerHTML = '<tr class="empty-row"><td colspan="9">No hay productos registrados.</td></tr>';
         return;
       }
       tbody.innerHTML = res.data.map(p => {
         const stockClass = p.cantidad_stock == 0 ? 'stock-low' : p.cantidad_stock < 5 ? 'stock-med' : 'stock-ok';
         return `<tr>
-          <td>${p.numero_serie}</td>
-          <td>${p.descripcion}</td>
-          <td>${p.marca}</td>
+          <td>${p.numero_serie || '—'}</td>
+          <td>${p.descripcion || '—'}</td>
+          <td>${p.marca || '—'}</td>
           <td>${fmt$(p.precio_compra)}</td>
           <td>${fmt$(p.ganancia)}</td>
           <td>${fmt$(p.iva)}</td>
@@ -154,16 +244,17 @@
           <td>
             <button class="btn btn-sm btn-primary" onclick="editarProducto(${p.id})">✏️</button>
             <button class="btn btn-sm btn-danger"  onclick="eliminarProducto(${p.id}, '${p.descripcion}')">🗑️</button>
-          </td>
+           </td>
         </tr>`;
       }).join('');
-    } catch {
+    } catch (err) {
+      console.error('Error:', err);
       tbody.innerHTML = '<tr class="empty-row"><td colspan="9">⚠️ Error de conexión.</td></tr>';
     }
   }
 
   /* ─── Guardar ───────────────────────────────────── */
-  async function guardarProducto() {
+  window.guardarProducto = async function() {
     const serie  = document.getElementById('p-serie');
     const desc   = document.getElementById('p-desc');
     const marca  = document.getElementById('p-marca');
@@ -207,56 +298,73 @@
         cantidad_stock:  parseInt(stock.value),
         estado:          estado.value,
       };
-      const res = editId ? await apiPut(`/productos/${editId}`, data) : await apiPost('/productos', data);
+      const res = editId ? await apiPut(`/api/productos/${editId}`, data) : await apiPost('/api/productos', data);
       if (res.ok) { mostrarAlerta(alerta, 'success', res.mensaje); limpiarFormProducto(); cargarProductos(); }
-      else          mostrarAlerta(alerta, 'error', res.mensaje);
-    } catch {
+      else          mostrarAlerta(alerta, 'error', res.mensaje || 'Error al guardar');
+    } catch (err) {
+      console.error('Error:', err);
       mostrarAlerta(alerta, 'error', 'Error de conexión con el servidor.');
     } finally {
       btn.disabled = false; btn.innerHTML = '📦 Guardar Producto';
     }
-  }
+  };
 
   /* ─── Editar ────────────────────────────────────── */
-  async function editarProducto(id) {
-    const res = await apiGet(`/productos/${id}`);
-    if (!res.ok) return;
-    const p = res.data;
-    document.getElementById('p-serie').value  = p.numero_serie;
-    document.getElementById('p-desc').value   = p.descripcion;
-    document.getElementById('p-marca').value  = p.marca;
-    document.getElementById('p-precio').value = p.precio_compra;
-    document.getElementById('p-margen').value = p.margen_ganancia;
-    document.getElementById('p-stock').value  = p.cantidad_stock;
-    document.getElementById('p-estado').value = p.estado;
-    document.getElementById('p-editId').value = p.id;
-    document.getElementById('btnGuardarProducto').innerHTML = '💾 Actualizar Producto';
-    calcularProducto();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
+  window.editarProducto = async function(id) {
+    try {
+      const res = await apiGet(`/api/productos/${id}`);
+      if (!res.ok) return;
+      const p = res.data;
+      document.getElementById('p-serie').value  = p.numero_serie || '';
+      document.getElementById('p-desc').value   = p.descripcion || '';
+      document.getElementById('p-marca').value  = p.marca || '';
+      document.getElementById('p-precio').value = p.precio_compra || 0;
+      document.getElementById('p-margen').value = p.margen_ganancia || 30;
+      document.getElementById('p-stock').value  = p.cantidad_stock || 0;
+      document.getElementById('p-estado').value = p.estado || 'Activo';
+      document.getElementById('p-editId').value = p.id;
+      document.getElementById('btnGuardarProducto').innerHTML = '💾 Actualizar Producto';
+      calcularProducto();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      console.error('Error:', err);
+    }
+  };
 
   /* ─── Eliminar ──────────────────────────────────── */
-  async function eliminarProducto(id, nombre) {
+  window.eliminarProducto = async function(id, nombre) {
     if (!confirm(`¿Eliminar "${nombre}"?`)) return;
-    const res = await apiDel(`/productos/${id}`);
-    mostrarAlerta(document.getElementById('alertaProducto'), res.ok ? 'success' : 'error', res.mensaje);
-    if (res.ok) cargarProductos();
-  }
+    try {
+      const res = await apiDel(`/api/productos/${id}`);
+      const alerta = document.getElementById('alertaProducto');
+      mostrarAlerta(alerta, res.ok ? 'success' : 'error', res.mensaje);
+      if (res.ok) cargarProductos();
+    } catch (err) {
+      console.error('Error:', err);
+    }
+  };
 
   /* ─── Limpiar ───────────────────────────────────── */
-  function limpiarFormProducto() {
+  window.limpiarFormProducto = function() {
     ['p-serie','p-desc','p-marca','p-precio','p-stock'].forEach(id => {
       const el = document.getElementById(id);
-      el.value = el.id === 'p-stock' ? '0' : '';
-      el.classList.remove('ok','error');
+      if (el) {
+        el.value = el.id === 'p-stock' ? '0' : '';
+        el.classList.remove('ok','error');
+        el.style.border = '';
+      }
     });
-    document.getElementById('p-margen').value = '30';
-    document.getElementById('p-estado').value = 'Activo';
-    document.getElementById('p-editId').value = '';
-    document.getElementById('btnGuardarProducto').innerHTML = '📦 Guardar Producto';
+    const margen = document.getElementById('p-margen');
+    if (margen) margen.value = '30';
+    const estado = document.getElementById('p-estado');
+    if (estado) estado.value = 'Activo';
+    const editId = document.getElementById('p-editId');
+    if (editId) editId.value = '';
+    const btn = document.getElementById('btnGuardarProducto');
+    if (btn) btn.innerHTML = '📦 Guardar Producto';
     document.querySelectorAll('.error-msg').forEach(e => e.textContent = '');
     calcularProducto();
-  }
+  };
 
   cargarProductos();
 </script>
