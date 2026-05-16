@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>InTech — Sistema de Control de Inventarios</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='15' fill='%23e87722'/><text y='.9em' font-size='65' x='10' fill='white' font-weight='900'>IT</text></svg>">
 </head>
 <body>
@@ -75,24 +75,32 @@
   </div>
 </footer>
 
-<script src="js/main.js"></script>
+<script src="main.js"></script>
 <script>
+  // Función para formatear dinero
+  function fmt$(valor) {
+    return '$' + parseFloat(valor).toLocaleString('es-EC', {minimumFractionDigits: 2});
+  }
+
   // Cargar navbar
   fetch('nav.html').then(r=>r.text()).then(h=>{ document.getElementById('navbar-placeholder').innerHTML=h; });
 
   // Cargar estadísticas
   async function cargarStats() {
     try {
-      const res = await apiGet('/estadisticas');
-      if (res.ok) {
-        const d = res.data;
-        document.getElementById('st-clientes').textContent  = d.total_clientes;
-        document.getElementById('st-productos').textContent = d.total_productos;
-        document.getElementById('st-ventas').textContent    = d.total_ventas;
-        document.getElementById('st-ingresos').textContent  = fmt$(d.ingresos_totales);
-        document.getElementById('st-stockbajo').textContent = d.stock_bajo;
+      const res = await fetch('/api/estadisticas');
+      const data = await res.json();
+      if (data.ok) {
+        const d = data.data;
+        document.getElementById('st-clientes').textContent  = d.total_clientes || 0;
+        document.getElementById('st-productos').textContent = d.total_productos || 0;
+        document.getElementById('st-ventas').textContent    = d.total_ventas || 0;
+        document.getElementById('st-ingresos').textContent  = fmt$(d.ingresos_totales || 0);
+        document.getElementById('st-stockbajo').textContent = d.stock_bajo || 0;
       }
-    } catch { /* servidor no disponible */ }
+    } catch (err) {
+      console.error('Error cargando estadísticas:', err);
+    }
   }
   cargarStats();
 </script>
